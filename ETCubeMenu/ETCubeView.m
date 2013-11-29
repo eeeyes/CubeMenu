@@ -16,6 +16,14 @@ typedef enum
     ETCubeStateWillEnd,
     ETCubeStateEnd
 } ETCubeState;
+
+typedef enum {
+    ETCubeOperationLeft,
+    ETCubeOperationRight,
+    ETCubeOperationUp,
+    ETCubeOperationDown
+}ETCubeOperation;
+
 @interface ETCubeView()
 {
 
@@ -24,6 +32,9 @@ typedef enum
     CATransformLayer* _transformLayer;
     
     ETCubeState _cubeState;
+    ETCubeOperation _cubeOperation;
+    
+    CGFloat lastOffset;
     
 }
 -(void)moved:(UIPanGestureRecognizer*)pan;
@@ -78,35 +89,68 @@ typedef enum
     }
     return self;
 }
+
+
 -(void)moved:(UIPanGestureRecognizer *)pan
 {
     if( _cubeState == ETCubeStateWillEnd )
         return;
     
+    CGPoint vectorPoint = [pan translationInView:self];
+    
+    
     switch (pan.state) {
-        case UIGestureRecognizerStateBegan:
-            if(_cubeState == ETCubeStateRunning )
-                return;
-            [self startHSroll];
-            break;
         case UIGestureRecognizerStateEnded:
             if( _cubeState != ETCubeStateRunning)
                 return;
-            [self endHScroll];
+            
+            [self endScrollToOriginal:ABS(lastOffset)<M_PI_4];
             return;
+            
         default:
+            NSLog(@"began %f",vectorPoint.x);
+            if(_cubeState != ETCubeStateEnd)
+                break;
+            if(ABS(vectorPoint.x)<2.f)
+                return;
+            if(vectorPoint.x<0)
+                _cubeOperation = ETCubeOperationLeft;
+            else
+                _cubeOperation = ETCubeOperationRight;
+            
+            [self startSroll];
+           
             break;
+
    }
     
-    CGFloat translationPointX = -ABS([pan translationInView:self].x)/self.bounds.size.width*M_PI;
-    if( translationPointX < -M_PI_2){
-        [self endHScroll];
+    
+    if( _cubeState != ETCubeStateRunning)
+        return;
+    
+    CGFloat translationPointX = vectorPoint.x/self.bounds.size.width*M_PI;
+    if (_cubeOperation == ETCubeOperationLeft &&
+         (translationPointX > 0 || translationPointX < -M_PI_2 ) )
+    {
+      if(translationPointX > 0)
+          translationPointX = 0;
+      else
+          translationPointX = -M_PI_2;
     }
-    else
-        [self scrollToDegree:translationPointX];
+     if  (_cubeOperation == ETCubeOperationRight &&
+        (translationPointX < 0 || translationPointX > M_PI_2))
+    {
+       if(translationPointX<0)
+           translationPointX = 0;
+        else
+            translationPointX = M_PI_2;
+        
+    }
+    
+    [self scrollToDegree:translationPointX];
 
 }
--(void)startHSroll
+-(void)startSroll
 {
     _cubeState = ETCubeStateRunning;
     CGFloat halfWidth = self.bounds.size.width / 2.0;
@@ -124,14 +168,21 @@ typedef enum
     
     //cube the next view
     CATransform3D transform = CATransform3DIdentity;
-    transform = CATransform3DTranslate(transform, 0, 0, -halfWidth);
-    transform = CATransform3DRotate(transform,  M_PI_2 , 0, 1, 0);
+     transform = CATransform3DTranslate(transform, 0, 0, -halfWidth);
+    if(_cubeOperation == ETCubeOperationLeft){
+        transform = CATransform3DRotate(transform,  M_PI_2 , 0, 1, 0);
+    }else{
+        transform = CATransform3DRotate(transform, -M_PI_2, 0, 1, 0);
+    }
     transform = CATransform3DTranslate(transform, 0, 0, halfWidth);
+    
     _nextView.layer.transform = transform;
     [_transformLayer addSublayer:_nextView.layer];
 	[CATransaction commit];
 }
--(void)endHScroll
+
+
+-(void)endScrollToOriginal:(BOOL)toOriginal
 {
     _cubeState = ETCubeStateWillEnd;
     CGFloat halfWidth = self.bounds.size.width / 2.0;
@@ -142,10 +193,11 @@ typedef enum
         _nextView.layer.transform = CATransform3DIdentity;
         [_currentView.layer removeFromSuperlayer];
         
-        UIView* tempView = _currentView;
-        _currentView = _nextView;
-        _nextView = tempView;
-        
+        if(!toOriginal){
+            UIView* tempView = _currentView;
+            _currentView = _nextView;
+            _nextView = tempView;
+        }
         [self addSubview:_currentView];
         [_transformLayer removeFromSuperlayer];
         _transformLayer = nil;
@@ -153,19 +205,30 @@ typedef enum
     
     
     CATransform3D transform = CATransform3DIdentity;
-	transform.m34 = PERSPECTIVE;
-    transform = CATransform3DTranslate(transform, 0, 0, -halfWidth);
-    transform = CATransform3DRotate(transform, -M_PI_2 , 0, 1, 0);
-    transform = CATransform3DTranslate(transform, 0, 0, halfWidth);
+    transform.m34 = PERSPECTIVE;
+    if(!toOriginal){
+        transform = CATransform3DTranslate(transform, 0, 0, -halfWidth);
+        if(_cubeOperation == ETCubeOperationLeft){
+            transform = CATransform3DRotate(transform, -M_PI_2 , 0, 1, 0);
+        }
+        else{
+            transform = CATransform3DRotate(transform, M_PI_2, 0, 1, 0);
+        }
+        transform = CATransform3DTranslate(transform, 0, 0, halfWidth);
+    }
     _transformLayer.transform = transform;
     [CATransaction commit];
 }
+
 -(void)scrollToDegree:(CGFloat)degree
 {
+    lastOffset = degree;
     CGFloat halfWidth = self.bounds.size.width / 2.0;
    
     CATransform3D transform = CATransform3DIdentity;
 	transform.m34 = PERSPECTIVE;
+    
+    
     transform = CATransform3DTranslate(transform, 0, 0, -halfWidth);
     transform = CATransform3DRotate(transform, degree , 0, 1, 0);
     transform = CATransform3DTranslate(transform, 0, 0, halfWidth);
@@ -177,77 +240,6 @@ typedef enum
     _transformLayer.transform = transform;
     [CATransaction commit];
     
-}
--(void)nextPage
-{
-    CGFloat halfWidth = self.bounds.size.width / 2.0;
-     CGFloat perspective = -1.0/1000.0;
-    
-    //add currentview and nextview transform layer
-    CALayer *transformLayer = [[CATransformLayer alloc] init];
-	transformLayer.frame = self.layer.bounds;
-    
-    [_currentView removeFromSuperview];
-    [transformLayer addSublayer:_currentView.layer];
-    [transformLayer addSublayer:_nextView.layer];
-    [self.layer addSublayer:transformLayer];
-    
-    
-    //cube the next view
-    [CATransaction begin];
-	[CATransaction setDisableActions:YES];
-	CATransform3D transform = CATransform3DIdentity;
-	
-	
-    transform = CATransform3DTranslate(transform, 0, 0, -halfWidth);
-    transform = CATransform3DRotate(transform,  M_PI_2 , 0, 1, 0);
-    transform = CATransform3DTranslate(transform, 0, 0, halfWidth);
-  
-	
-	_nextView.layer.transform = transform;
-	[CATransaction commit];
-    
-    //animated rotate the next view
-    CGFloat duration = .7f;
-   
-    
-    [CATransaction begin];
-	[CATransaction setCompletionBlock:^(void) {
-		[_nextView.layer removeFromSuperlayer];
-		_nextView.layer.transform = CATransform3DIdentity;
-		[_currentView.layer removeFromSuperlayer];
-        
-		UIView* tempView = _currentView;
-        _currentView = _nextView;
-        _nextView = tempView;
-        
-		[self addSubview:_currentView];
-		[transformLayer removeFromSuperlayer];
-		
-		
-	}];
-	
-	CABasicAnimation *transformAnimation = [CABasicAnimation animationWithKeyPath:@"transform"];
-	
-	transform = CATransform3DIdentity;
-	transform.m34 = perspective;
-	transformAnimation.fromValue = [NSValue valueWithCATransform3D:transform];
-	
-	transform = CATransform3DIdentity;
-	transform.m34 = perspective;
-    transform = CATransform3DTranslate(transform, 0, 0, -halfWidth);
-    transform = CATransform3DRotate(transform, -M_PI_2 , 0, 1, 0);
-    transform = CATransform3DTranslate(transform, 0, 0, halfWidth);
-    
-	transformAnimation.toValue = [NSValue valueWithCATransform3D:transform];
-	
-	transformAnimation.duration = duration;
-	
-	[transformLayer addAnimation:transformAnimation forKey:@"rotate"];
-	transformLayer.transform = transform;
-	
-	[CATransaction commit];
-
 }
 -(void)layoutSubviews
 {

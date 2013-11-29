@@ -9,10 +9,11 @@
 #import <UIKit/UIKit.h>
 
 @interface ETCubeView : UIView
--(void)nextPage;
 
--(void)startHSroll;
+-(void)startSroll;
 -(void)scrollToDegree:(CGFloat)degree;
--(void)endHScroll;
+-(void)endScrollToOriginal:(BOOL)toOriginal;
+
+
 
 @end

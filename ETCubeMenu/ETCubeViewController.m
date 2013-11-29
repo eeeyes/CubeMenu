@@ -12,7 +12,6 @@
 @interface ETCubeViewController ()
 {
     ETCubeView* _cubeView;
-    UIButton* _nextButton;
 }
 @end
 
@@ -27,10 +26,7 @@
     }
     return self;
 }
--(void)next
-{
-    [_cubeView nextPage];
-}
+
 - (void)viewDidLoad
 {
     [super viewDidLoad];
@@ -38,19 +34,12 @@
     _cubeView = [[ETCubeView alloc]init];
     
     
-    _nextButton = [[UIButton alloc]init];
-    _nextButton.backgroundColor = [UIColor purpleColor];
-    
-    [_nextButton setTitle:@"next" forState:UIControlStateNormal];
-    [_nextButton addTarget:self action:@selector(next) forControlEvents:UIControlEventTouchUpInside];
-    
     [self.view addSubview:_cubeView];
-    [self.view addSubview:_nextButton];
+
 }
 -(void)viewWillAppear:(BOOL)animated
 {
     _cubeView.frame = CGRectMake(60.f, 100.f, 200.f, 200.f);
-    _nextButton.frame = CGRectMake(60.f, 400.f, 200.f, 60.f);
 }
 - (void)didReceiveMemoryWarning
 {
