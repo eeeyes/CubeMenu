@@ -100,7 +100,9 @@ typedef enum {
     
     
     switch (pan.state) {
+        case UIGestureRecognizerStateFailed:
         case UIGestureRecognizerStateEnded:
+        case UIGestureRecognizerStateCancelled:
             if( _cubeState != ETCubeStateRunning)
                 return;
             
@@ -111,12 +113,13 @@ typedef enum {
             NSLog(@"began %f",vectorPoint.x);
             if(_cubeState != ETCubeStateEnd)
                 break;
-            if(ABS(vectorPoint.x)<2.f)
+            if(ABS(vectorPoint.x)<2.f && ABS(vectorPoint.y)<2.f)
                 return;
-            if(vectorPoint.x<0)
-                _cubeOperation = ETCubeOperationLeft;
-            else
-                _cubeOperation = ETCubeOperationRight;
+            if( ABS(vectorPoint.x) > ABS(vectorPoint.y) ){
+                _cubeOperation = (vectorPoint.x<0?ETCubeOperationLeft:ETCubeOperationRight);
+            }else{
+                _cubeOperation= (vectorPoint.y<0?ETCubeOperationUp:ETCubeOperationDown);
+            }
             
             [self startSroll];
            
@@ -128,26 +131,29 @@ typedef enum {
     if( _cubeState != ETCubeStateRunning)
         return;
     
-    CGFloat translationPointX = vectorPoint.x/self.bounds.size.width*M_PI;
-    if (_cubeOperation == ETCubeOperationLeft &&
-         (translationPointX > 0 || translationPointX < -M_PI_2 ) )
+    CGFloat translationPoint =
+    (_cubeOperation==ETCubeOperationLeft||_cubeOperation==ETCubeOperationRight)?
+    vectorPoint.x/self.bounds.size.width*M_PI:-vectorPoint.y/self.bounds.size.height*M_PI;
+    
+    if ((_cubeOperation == ETCubeOperationLeft || _cubeOperation == ETCubeOperationDown) &&
+         (translationPoint > 0 || translationPoint < -M_PI_2 ) )
     {
-      if(translationPointX > 0)
-          translationPointX = 0;
+      if(translationPoint > 0)
+          translationPoint = 0;
       else
-          translationPointX = -M_PI_2;
+          translationPoint = -M_PI_2;
     }
-     if  (_cubeOperation == ETCubeOperationRight &&
-        (translationPointX < 0 || translationPointX > M_PI_2))
+     if  ( (_cubeOperation == ETCubeOperationRight || _cubeOperation == ETCubeOperationUp) &&
+        (translationPoint < 0 || translationPoint > M_PI_2))
     {
-       if(translationPointX<0)
-           translationPointX = 0;
+       if(translationPoint<0)
+           translationPoint = 0;
         else
-            translationPointX = M_PI_2;
+            translationPoint = M_PI_2;
         
     }
     
-    [self scrollToDegree:translationPointX];
+    [self scrollToDegree:translationPoint];
 
 }
 -(void)startSroll
@@ -168,11 +174,22 @@ typedef enum {
     
     //cube the next view
     CATransform3D transform = CATransform3DIdentity;
-     transform = CATransform3DTranslate(transform, 0, 0, -halfWidth);
-    if(_cubeOperation == ETCubeOperationLeft){
-        transform = CATransform3DRotate(transform,  M_PI_2 , 0, 1, 0);
-    }else{
-        transform = CATransform3DRotate(transform, -M_PI_2, 0, 1, 0);
+    transform = CATransform3DTranslate(transform, 0, 0, -halfWidth);
+    switch (_cubeOperation) {
+        case ETCubeOperationLeft:
+            transform = CATransform3DRotate(transform,  M_PI_2 , 0, 1, 0);
+            break;
+        case ETCubeOperationRight:
+            transform = CATransform3DRotate(transform, -M_PI_2 , 0, 1, 0);
+            break;
+        case ETCubeOperationUp:
+            transform = CATransform3DRotate(transform, -M_PI_2, 1, 0, 0);
+            break;
+        case ETCubeOperationDown:
+            transform = CATransform3DRotate(transform, M_PI_2, 1, 0, 0);
+            break;
+        default:
+            break;
     }
     transform = CATransform3DTranslate(transform, 0, 0, halfWidth);
     
@@ -208,12 +225,23 @@ typedef enum {
     transform.m34 = PERSPECTIVE;
     if(!toOriginal){
         transform = CATransform3DTranslate(transform, 0, 0, -halfWidth);
-        if(_cubeOperation == ETCubeOperationLeft){
-            transform = CATransform3DRotate(transform, -M_PI_2 , 0, 1, 0);
+        switch (_cubeOperation) {
+            case ETCubeOperationLeft:
+                transform = CATransform3DRotate(transform, -M_PI_2 , 0, 1, 0);
+                break;
+            case ETCubeOperationRight:
+                transform = CATransform3DRotate(transform, M_PI_2 , 0, 1, 0);
+                break;
+            case ETCubeOperationUp:
+                transform = CATransform3DRotate(transform, M_PI_2 , 1, 0, 0);
+                break;
+            case ETCubeOperationDown:
+                transform = CATransform3DRotate(transform, -M_PI_2 , 1, 0, 0);
+                break;
+            default:
+                break;
         }
-        else{
-            transform = CATransform3DRotate(transform, M_PI_2, 0, 1, 0);
-        }
+
         transform = CATransform3DTranslate(transform, 0, 0, halfWidth);
     }
     _transformLayer.transform = transform;
@@ -230,7 +258,18 @@ typedef enum {
     
     
     transform = CATransform3DTranslate(transform, 0, 0, -halfWidth);
-    transform = CATransform3DRotate(transform, degree , 0, 1, 0);
+    switch (_cubeOperation) {
+        case ETCubeOperationLeft:
+        case ETCubeOperationRight:
+            transform = CATransform3DRotate(transform, degree , 0, 1, 0);
+            break;
+        case ETCubeOperationUp:
+        case ETCubeOperationDown:
+            transform = CATransform3DRotate(transform, degree, 1, 0, 0);
+            break;
+        default:
+            break;
+    }
     transform = CATransform3DTranslate(transform, 0, 0, halfWidth);
     
 
